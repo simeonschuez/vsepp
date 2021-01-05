@@ -9,7 +9,7 @@ import numpy as np
 import json as jsonmod
 
 
-def get_paths(path, name='coco', use_restval=False):
+def get_paths(path, name='coco', use_restval=False, caption_file=None):
     """
     Returns paths to images and annotations for the given datasets. For MSCOCO
     indices are also returned to control the data split being used.
@@ -72,6 +72,11 @@ def get_paths(path, name='coco', use_restval=False):
         roots['val'] = {'img': imgdir, 'cap': cap}
         roots['test'] = {'img': imgdir, 'cap': cap}
         ids = {'train': None, 'val': None, 'test': None}
+
+    if caption_file:
+        # replace caption files path if path is given as parameter
+        for key in roots:
+            roots[key]['cap'] = caption_file
 
     return roots, ids
 
@@ -369,14 +374,14 @@ def get_loaders(data_name, vocab, crop_size, batch_size, workers, opt, image_loc
 
 
 def get_test_loader(split_name, data_name, vocab, crop_size, batch_size,
-                    workers, opt, image_location=None):
+                    workers, opt, image_location=None, caption_file=None):
     dpath = os.path.join(opt.data_path, data_name)
     if opt.data_name.endswith('_precomp'):
         test_loader = get_precomp_loader(dpath, split_name, vocab, opt,
                                          batch_size, False, workers)
     else:
         # Build Dataset Loader
-        roots, ids = get_paths(dpath, data_name, opt.use_restval)
+        roots, ids = get_paths(dpath, data_name, opt.use_restval, caption_file)
 
         transform = get_transform(data_name, split_name, opt)
         test_loader = get_loader_single(opt.data_name, split_name,
