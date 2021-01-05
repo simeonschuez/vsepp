@@ -86,7 +86,6 @@ def encode_data(model, data_loader, log_step=10, logging=print, on_gpu=False):
     img_embs = None
     cap_embs = None
     for i, (images, captions, lengths, ids) in enumerate(data_loader):
-        print('{}/{}'.format(i, len(data_loader)))
         # make sure val logger is used
         model.logger = val_logger
 
@@ -128,7 +127,7 @@ def encode_data(model, data_loader, log_step=10, logging=print, on_gpu=False):
     return img_embs, cap_embs
 
 
-def evalrank(model_path, data_path=None, vocab_path=None, split='dev', fold5=False, on_gpu=False):
+def evalrank(model_path, data_path=None, vocab_path=None, split='dev', fold5=False, on_gpu=False, image_location=None):
     """
     Evaluate a trained model on either dev or test. If `fold5=True`, 5 fold
     cross-validation is done (only for MSCOCO). Otherwise, the full data is
@@ -158,7 +157,7 @@ def evalrank(model_path, data_path=None, vocab_path=None, split='dev', fold5=Fal
 
     print('Loading dataset')
     data_loader = get_test_loader(split, opt.data_name, vocab, opt.crop_size,
-                                  opt.batch_size, opt.workers, opt)
+                                  opt.batch_size, opt.workers, opt, image_location=image_location)
 
     print('Computing results...')
     img_embs, cap_embs = encode_data(model, data_loader, on_gpu=on_gpu)

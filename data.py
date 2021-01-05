@@ -94,6 +94,7 @@ class CocoDataset(data.Dataset):
         """
         self.root = root
         # when using `restval`, two json files are needed
+        
         if isinstance(json, tuple):
             self.coco = (COCO(json[0]), COCO(json[1]))
         else:
@@ -101,7 +102,7 @@ class CocoDataset(data.Dataset):
             self.root = (root,)
         # if ids provided by get_paths, use split-specific ids
         if ids is None:
-            self.ids = list(self.coco.anns.keys())
+            self.ids = list(self.coco[0].anns.keys())
         else:
             self.ids = ids
 
@@ -382,6 +383,9 @@ def get_test_loader(split_name, data_name, vocab, crop_size, batch_size,
     else:
         # Build Dataset Loader
         roots, ids = get_paths(dpath, data_name, opt.use_restval, caption_file)
+        
+        if caption_file:
+            ids[split_name] = None
 
         transform = get_transform(data_name, split_name, opt)
         test_loader = get_loader_single(opt.data_name, split_name,
