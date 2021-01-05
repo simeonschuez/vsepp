@@ -82,9 +82,11 @@ def encode_data(model, data_loader, log_step=10, logging=print, on_gpu=False):
     end = time.time()
 
     # numpy array to keep all the embeddings
+    # TODO maybe return ids and captions as well
     img_embs = None
     cap_embs = None
     for i, (images, captions, lengths, ids) in enumerate(data_loader):
+        print('{}/{}'.format(i, len(data_loader)))
         # make sure val logger is used
         model.logger = val_logger
 

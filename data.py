@@ -30,6 +30,7 @@ def get_paths(path, name='coco', use_restval=False):
     roots = {}
     ids = {}
     if 'coco' == name:
+        # insert custom annotation file here
         imgdir = os.path.join(path, 'images')
         capdir = os.path.join(path, 'annotations')
         roots['train'] = {
@@ -78,7 +79,7 @@ def get_paths(path, name='coco', use_restval=False):
 class CocoDataset(data.Dataset):
     """COCO Custom Dataset compatible with torch.utils.data.DataLoader."""
 
-    def __init__(self, root, json, vocab, transform=None, ids=None):
+    def __init__(self, root, json, vocab, image_location=None, transform=None, ids=None):
         """
         Args:
             root: image directory.
@@ -107,12 +108,13 @@ class CocoDataset(data.Dataset):
             self.bp = len(self.ids)
         self.vocab = vocab
         self.transform = transform
+        self.image_location = image_location
 
     def __getitem__(self, index):
         """This function returns a tuple that is further passed to collate_fn
         """
         vocab = self.vocab
-        root, caption, img_id, path, image = self.get_raw_item(index)
+        root, caption, img_id, path, image = self.get_raw_item(index, image_location=self.image_location)
 
         if self.transform is not None:
             image = self.transform(image)
@@ -127,7 +129,7 @@ class CocoDataset(data.Dataset):
         target = torch.Tensor(caption)
         return image, target, index, img_id
 
-    def get_raw_item(self, index):
+    def get_raw_item(self, index, image_location):
         if index < self.bp:
             coco = self.coco[0]
             root = self.root[0]
@@ -135,9 +137,15 @@ class CocoDataset(data.Dataset):
             coco = self.coco[1]
             root = self.root[1]
         ann_id = self.ids[index]
+        # get custom caption here
         caption = coco.anns[ann_id]['caption']
         img_id = coco.anns[ann_id]['image_id']
         path = coco.loadImgs(img_id)[0]['file_name']
+
+        # get images from another directory
+        if image_location:
+            path = os.path.join(image_location, path)
+
         image = Image.open(os.path.join(root, path)).convert('RGB')
 
         return root, caption, img_id, path, image
@@ -268,6 +276,7 @@ def collate_fn(data):
 
 
 def get_loader_single(data_name, split, root, json, vocab, transform,
+                      image_location=None,
                       batch_size=100, shuffle=True,
                       num_workers=2, ids=None, collate_fn=collate_fn):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
@@ -276,6 +285,7 @@ def get_loader_single(data_name, split, root, json, vocab, transform,
         dataset = CocoDataset(root=root,
                               json=json,
                               vocab=vocab,
+                              image_location=image_location,
                               transform=transform, ids=ids)
     elif 'f8k' in data_name or 'f30k' in data_name:
         dataset = FlickrDataset(root=root,
@@ -324,7 +334,7 @@ def get_transform(data_name, split_name, opt):
     return transform
 
 
-def get_loaders(data_name, vocab, crop_size, batch_size, workers, opt):
+def get_loaders(data_name, vocab, crop_size, batch_size, workers, opt, image_location=None):
     dpath = os.path.join(opt.data_path, data_name)
     if opt.data_name.endswith('_precomp'):
         train_loader = get_precomp_loader(dpath, 'train', vocab, opt,
@@ -340,6 +350,7 @@ def get_loaders(data_name, vocab, crop_size, batch_size, workers, opt):
                                          roots['train']['img'],
                                          roots['train']['cap'],
                                          vocab, transform, ids=ids['train'],
+                                         image_location=image_location,
                                          batch_size=batch_size, shuffle=True,
                                          num_workers=workers,
                                          collate_fn=collate_fn)
@@ -349,6 +360,7 @@ def get_loaders(data_name, vocab, crop_size, batch_size, workers, opt):
                                        roots['val']['img'],
                                        roots['val']['cap'],
                                        vocab, transform, ids=ids['val'],
+                                       image_location=image_location,
                                        batch_size=batch_size, shuffle=False,
                                        num_workers=workers,
                                        collate_fn=collate_fn)
@@ -357,7 +369,7 @@ def get_loaders(data_name, vocab, crop_size, batch_size, workers, opt):
 
 
 def get_test_loader(split_name, data_name, vocab, crop_size, batch_size,
-                    workers, opt):
+                    workers, opt, image_location=None):
     dpath = os.path.join(opt.data_path, data_name)
     if opt.data_name.endswith('_precomp'):
         test_loader = get_precomp_loader(dpath, split_name, vocab, opt,
@@ -371,6 +383,7 @@ def get_test_loader(split_name, data_name, vocab, crop_size, batch_size,
                                         roots[split_name]['img'],
                                         roots[split_name]['cap'],
                                         vocab, transform, ids=ids[split_name],
+                                        image_location=image_location,
                                         batch_size=batch_size, shuffle=False,
                                         num_workers=workers,
                                         collate_fn=collate_fn)

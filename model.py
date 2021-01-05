@@ -351,22 +351,24 @@ class VSE(object):
         """Compute the image and caption embeddings
         """
         # Set mini-batch dataset
-        images = Variable(images, volatile=volatile)
-        captions = Variable(captions, volatile=volatile)
-        if torch.cuda.is_available():
-            images = images.cuda()
-            captions = captions.cuda()
+        with torch.no_grad():
+            images = Variable(images) #, volatile=volatile)
+            captions = Variable(captions) #, volatile=volatile)
+            if torch.cuda.is_available():
+                images = images.cuda()
+                captions = captions.cuda()
 
-        # Forward
-        img_emb = self.img_enc(images)
-        cap_emb = self.txt_enc(captions, lengths)
+            # Forward
+            img_emb = self.img_enc(images)
+            cap_emb = self.txt_enc(captions, lengths)
         return img_emb, cap_emb
 
     def forward_loss(self, img_emb, cap_emb, **kwargs):
         """Compute the loss given pairs of image and caption embeddings
         """
         loss = self.criterion(img_emb, cap_emb)
-        self.logger.update('Le', loss.data[0], img_emb.size(0))
+        # avoid indexing error by using .item()
+        self.logger.update('Le', loss.item(), img_emb.size(0))
         return loss
 
     def train_emb(self, images, captions, lengths, ids=None, *args):
