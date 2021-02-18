@@ -72,6 +72,7 @@ def evaluate_file(caption_file, cluster_file,
     # initialize empty array with shape [5000, n_dist]
     # (where n_dist in [2, 4, 9])
     all_ranks = np.zeros((len(cap_embs), n_dist))
+    img_ids = np.zeros((len(cap_embs), n_dist))
 
     # iterate through range from 0-4999
     for i in range(len(cap_embs)):
@@ -97,18 +98,16 @@ def evaluate_file(caption_file, cluster_file,
         # get ranks by sorting the cosines (in descending order)
         ranks = np.argsort(cosines.ravel())[::-1]
 
-        # dots = cemb @ iemb.T
-        # sort indices according to dot product
-        # ranks = np.argsort(dots.ravel())[::-1]
         # add to all_ranks array
         all_ranks[i] = ranks
+        img_ids[i] = cluster
 
     # determine how often the target image is ranked first
     target_positions = np.where(all_ranks == 0)[1]
     # compute accuracy
     acc = len(target_positions[target_positions == 0]) / len(target_positions)
 
-    return acc, all_ranks, target_positions
+    return acc, all_ranks, target_positions, img_ids
 
 
 def main(args):
@@ -145,10 +144,17 @@ def main(args):
         if len(files) == 0:
             continue
 
+        # set template for clusters
+
+        if args.random_distractors:
+            cluster_template = 'random_image_clusters_{split}_{n}.pkl'
+        else:
+            cluster_template = 'image_clusters_{split}_{n}.pkl'
+
         # select corresponding cluster file
         cluster_file = join(
             args.cluster_dir,
-            'image_clusters_{split}_{n}.pkl'.format(
+            cluster_template.format(
                 split=args.split, n=str(n_dist + 1))
             )
 
@@ -162,7 +168,7 @@ def main(args):
             t.refresh()
 
             # evaluate file
-            acc, all_ranks, target_positions = evaluate_file(
+            acc, all_ranks, target_positions, cluster = evaluate_file(
                     file, cluster_file, model=model,
                     vocab=vocab, image_path=args.image_path, opt=opt, split=args.split
                     )
@@ -170,16 +176,17 @@ def main(args):
             # store results for current file
             res[key] = {
                     'acc': acc,
-                    'all_ranks': all_ranks,
-                    'target_positions': target_positions,
-                    'n_dist': n_dist
+                    'all_ranks': all_ranks.astype(int).tolist(),
+                    'target_positions': target_positions.astype(int).tolist(),
+                    'n_eval_dists': n_dist,
+                    'image_cluster': cluster.astype(int).tolist()
                 }
 
         # store results for current set of files
         results.append(res)
 
     # transform results into dataframe
-    res_dfs = [pd.DataFrame(r).T[['acc']] for r in results]
+    res_dfs = [pd.DataFrame(r).T[['n_eval_dists', 'acc', 'all_ranks', 'target_positions', 'image_cluster']] for r in results]
     # merge results
     concat_df = pd.concat(res_dfs)
     # write to file
@@ -209,9 +216,12 @@ if __name__ == '__main__':
     parser.add_argument('--out_file', type=str,
                         default='./discriminativeness_results.csv',
                         help='path for the output csv file')
+    parser.add_argument('--random_distractors', action='store_true')
     args = parser.parse_args()
 
     if len(args.cluster_dir) == 0:
         args.cluster_dir = join(args.input_dir, 'image_clusters')
+    if args.random_distractors:
+        print('using random clusters')
 
     main(args)
