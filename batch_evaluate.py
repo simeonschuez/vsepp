@@ -163,7 +163,7 @@ def main(args):
 
         for file in t:
             # get file name
-            key = os.path.split(file)[-1].replace('_reformat.json', '')
+            key = os.path.split(file)[-1].replace('_cleaned', '').replace('_reformat.json', '')
             t.set_description(key)
             t.refresh()
 
